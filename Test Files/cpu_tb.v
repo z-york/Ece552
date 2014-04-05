@@ -3,7 +3,7 @@ module cpu_tb();
 
 reg clk, rst_n; // CPU Controls
 wire hlt;       // Halt output
-wire [15:0] pc; // PC address output
+reg [15:0] pc;  // PC address output
         
 // Instantiate CPU
 cpu cpu1(hlt, clk, rst_n, pc);
@@ -24,6 +24,7 @@ initial begin
                 clk = 0;
                 #5;
         end
+        $display("halt address: %H", pc);
 end
 endmodule
         
