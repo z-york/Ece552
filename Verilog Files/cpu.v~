@@ -5,10 +5,10 @@ module cpu(output hlt, input clk, input rst_n, output [15:0]pc);
 
         wire[15:0] addr_plus, pc, instr, dst, p0, p1, rd_data, ALU_out, src1, src0;
         wire re0, re1, we, z, mem_we, mem_re, pc_hlt, bubble;
-        wire [3:0] shamt, p0_addr, p1_addr, dst_addr, branch_code;
+        wire [3:0] shamt, p0_addr, p1_addr, dst_addr;
         wire [2:0] funct, src1sel, src0sel;
         wire [1:0] flag_en, dst_sel;
-	wire branch, jumpR, bubble, addz, addz_we;
+	wire branch_code, jumpR, bubble, addz, addz_we;
 	// FLOP OUTPUTS //
 	reg EX_we, MEM_we, ID_mem_re, ID_mem_we, MEM_mem_re, ID_nop, ID_hlt, ID_addz, ID_jumpR,EX_hlt, EX_mem_re, EX_mem_we, MEM_hlt;
 	reg [1:0] ID_flag_en, ID_dst_sel, EX_dst_sel;
@@ -191,6 +191,4 @@ module cpu(output hlt, input clk, input rst_n, output [15:0]pc);
 		end
 	end
         
-	// Branch Control
-        branch_control bc(branch, neg, o, zr, EX_branch_code);
 endmodule 

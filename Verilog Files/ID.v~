@@ -26,8 +26,7 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         localparam Bov = 3'b110;
         localparam Bun = 3'b111;
 
-        input[15:0] instr;
-	input reg [3:0] EX_dst, MEM_dst;
+        input[15:0] instr, EX_dst, MEM_dst;
         input zr, neg, ov, EX_we, MEM_we, EX_mem_re, MEM_mem_re;
         output reg hlt, re0, re1, we, mem_re, mem_we, jumpR, bubble, addz;    // Controls
         output reg [3:0] shamt, p0_addr, p1_addr, dst_addr,     // Shamt and reg addresses
