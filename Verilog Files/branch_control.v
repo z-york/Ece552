@@ -2,7 +2,7 @@
 module branch_control(branch, neg, o, zr, branch_code);
 input [3:0] branch_code;
 input neg, o, zr;
-output branch;
+output reg branch;
 
 localparam Bneq = 3'b000;
 localparam Beq = 3'b001;
@@ -22,7 +22,7 @@ if(branch_code[3]) begin
 		Blt: if (neg) branch = 1'b1;
 		Bgte: if (zr || !neg) branch = 1'b1;
 		Blte: if (zr || neg) branch = 1'b1;
-		Bov: if (ov) branch = 1'b1;
+		Bov: if (o) branch = 1'b1;
 		Bun: branch = 1'b1;
 		default: branch = 1'b0;
         endcase

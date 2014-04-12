@@ -1,5 +1,5 @@
 // Andrew Gailey and Zach York
-module cpu(output hlt, input clk, input rst_n, output [15:0]pc);
+module cpu(output MEM_hlt, input clk, input rst_n, output [15:0]pc);
 
         reg zr, neg, o;                                 // Zero Flag Latch
 
@@ -7,14 +7,18 @@ module cpu(output hlt, input clk, input rst_n, output [15:0]pc);
         wire re0, re1, we, z, mem_we, mem_re, pc_hlt, bubble;
         wire [3:0] shamt, p0_addr, p1_addr, dst_addr, branch_code;
         wire [2:0] funct, src1sel, src0sel;
-        wire [1:0] flag_en, dst_sel;
-	wire branch, jumpR, bubble, addz, addz_we;
+        wire [1:0] flag_en, flag_en_out, dst_sel, ID_flag_en_out;
+	wire branch, jumpR, addz, addz_we, we_out;
 	// FLOP OUTPUTS //
-	reg EX_we, MEM_we, ID_mem_re, ID_mem_we, MEM_mem_re, ID_nop, ID_hlt, ID_addz, ID_jumpR,EX_hlt, EX_mem_re, EX_mem_we, MEM_hlt;
+	reg EX_we, ID_we, MEM_we, ID_mem_re, ID_mem_we, MEM_mem_re, ID_set_nop, ID_nop, IF_nop, ID_hlt, ID_addz, ID_jumpR,EX_hlt, EX_mem_re, EX_mem_we, MEM_hlt;
 	reg [1:0] ID_flag_en, ID_dst_sel, EX_dst_sel;
 	reg [2:0] ID_src1sel, ID_src0sel, ID_funct;
 	reg [3:0] ID_shamt, MEM_dst_addr, ID_dst_addr, EX_dst_addr, ID_branch_code, EX_branch_code;
 	reg [15:0] IF_instr, IF_addr_plus, ID_instr, ID_addr_plus, MEM_dst, ID_p0, ID_p1, EX_addr_plus, EX_p1, EX_ALU_out;
+
+	assign flag_en_out = {2{!IF_nop}} & flag_en;
+	assign ID_flag_en_out = {2{!ID_nop}} & ID_flag_en;
+	assign we_out = {!IF_nop} & we;
 
         // Instantiate each piece according to specifications
         //// FETCH ////
@@ -26,24 +30,29 @@ module cpu(output hlt, input clk, input rst_n, output [15:0]pc);
 		if(!rst_n) begin
 			IF_addr_plus <= 16'h0000;
 			IF_instr <= 16'h0000;
+			IF_nop <= 1'b1;
 		end
 		else if (jumpR) begin
 			IF_addr_plus <= 16'h0000;
 			IF_instr <= 16'h0000;
+			IF_nop <= 1'b1;
 		end
 		else begin
 			IF_addr_plus <= addr_plus;
 			IF_instr <= instr;
+			IF_nop <= 1'b0;
 		end
 	end
 
         //// END FETCH////
 	////
         //// DECODE (and WRITEBACK) ////
-        ID decode(IF_instr, zr, src1sel, hlt, shamt, funct, p0_addr, re0, p1_addr, re1, dst_addr, we, src0sel, flag_en, mem_re, mem_we, dst_sel, neg, o, branch_code, jumpR, EX_dst_addr, EX_we, MEM_dst_addr, MEM_we, EX_mem_re, MEM_mem_re, bubble, addz);
+        ID decode(IF_instr, zr, src1sel, hlt, shamt, funct, p0_addr, re0, p1_addr, re1, dst_addr, we, src0sel, flag_en, mem_re, mem_we, dst_sel, neg, o, branch_code, jumpR, ID_dst_addr, ID_we, EX_dst_addr, EX_we, ID_mem_re, EX_mem_re, bubble, addz);
         rf register(clk,p0_addr,p1_addr,p0,p1,re0,re1,MEM_dst_addr,MEM_dst,MEM_we,MEM_hlt);
 	// DECODE FLOPS
-	assign ID_nop = bubble || branch;
+	always@(bubble or branch) begin
+		ID_set_nop = bubble || branch;
+	end
 	always@(posedge clk or negedge rst_n) begin
 		if(!rst_n) begin
 			ID_instr <= 16'h0000;
@@ -64,8 +73,9 @@ module cpu(output hlt, input clk, input rst_n, output [15:0]pc);
 			ID_addz <= 1'b0;
 			ID_jumpR <= 1'b0;
 			ID_branch_code <= 4'b0000;
+			ID_nop <= 1'b1;
 		end
-		else if (ID_nop) begin
+		else if (ID_set_nop) begin
 			ID_instr <= 16'h0000;
 			ID_addr_plus <= 16'h0000;
 			ID_hlt <= 1'b0;
@@ -84,6 +94,7 @@ module cpu(output hlt, input clk, input rst_n, output [15:0]pc);
 			ID_addz <= 1'b0;
 			ID_jumpR <= 1'b0;
 			ID_branch_code <= 4'b0000;
+			ID_nop <= 1'b1;
 		end
 		else begin
 			ID_instr <= IF_instr;
@@ -94,8 +105,8 @@ module cpu(output hlt, input clk, input rst_n, output [15:0]pc);
 			ID_shamt <= shamt;
 			ID_funct <= funct;
 			ID_dst_addr <= dst_addr;
-			ID_we <= we;
-			ID_flag_en <= flag_en;
+			ID_we <= we_out;
+			ID_flag_en <= flag_en_out;
 			ID_mem_re <= mem_re;
 			ID_mem_re <= mem_we;
 			ID_dst_sel <= dst_sel;
@@ -104,6 +115,7 @@ module cpu(output hlt, input clk, input rst_n, output [15:0]pc);
 			ID_addz <= addz;
 			ID_jumpR <= jumpR;
 			ID_branch_code <= branch_code;
+			ID_nop <= 1'b0;
 		end
 	end
 	//// END DECODE ////
@@ -116,23 +128,23 @@ module cpu(output hlt, input clk, input rst_n, output [15:0]pc);
 	// flags
 	always@(posedge clk or negedge rst_n) begin
                 if(!rst_n) neg <= 1'b0;
-                else if(flag_en[1]) neg <= ALU_out[15];
+                else if(ID_flag_en_out[1]) neg <= ALU_out[15];
                 else neg <= neg;
         end
 
         always@(posedge clk or negedge rst_n) begin
                 if(!rst_n) zr <= 1'b0;
-                else if(flag_en[0]) zr <= z;
+                else if(ID_flag_en_out[0]) zr <= z;
                 else zr <= zr;
         end 
 
         always@(posedge clk or negedge rst_n) begin
                 if(!rst_n) o <= 1'b0;
-                else if(flag_en[1]) o <= ov;
+                else if(ID_flag_en_out[1]) o <= ov;
                 else o <= o;
         end
 	// The rest
-	assign addz_we = addz ? zr : ID_we;
+	assign addz_we = ID_addz ? zr : ID_we;
         always@(posedge clk or negedge rst_n) begin
 		if(!rst_n) begin
 			EX_addr_plus <= 16'h0000;

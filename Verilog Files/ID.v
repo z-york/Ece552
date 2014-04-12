@@ -27,11 +27,11 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         localparam Bun = 3'b111;
 
         input[15:0] instr;
-	input reg [3:0] EX_dst, MEM_dst;
+	input [3:0] EX_dst, MEM_dst;
         input zr, neg, ov, EX_we, MEM_we, EX_mem_re, MEM_mem_re;
         output reg hlt, re0, re1, we, mem_re, mem_we, jumpR, bubble, addz;    // Controls
         output reg [3:0] shamt, p0_addr, p1_addr, dst_addr,     // Shamt and reg addresses
-                         branch_code:
+                         branch_code;
         output reg [2:0] funct, src1sel_out, src0sel_out;       // Function bits for ALU
         output reg [1:0] flag_en, dst_sel;
 	reg [2:0] src0sel, src1sel;
@@ -39,25 +39,27 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
 
         // Forwarding Logic
 	always@(*) begin
+	bubble0 = 1'b0;
+	bubble1 = 1'b0;
 	bubble = bubble0 || bubble1;
-	if ((p0_addr == EX_dst) && EX_we) begin
+	if ((p0_addr != 4'b0000) && (p0_addr == EX_dst) && EX_we) begin
 		if (EX_mem_re) begin
 		bubble0 = 1'b1;
 		src0sel_out = 3'b000;
 		end
 		else src0sel_out = 3'b111;
 	end
-        else if ((p0_addr == MEM_dst) && MEM_we) src0sel_out = 3'b100;
+        else if ((p0_addr != 4'b0000) && (p0_addr == MEM_dst) && MEM_we) src0sel_out = 3'b100;
 	else src0sel_out = src0sel;
 
-	if ((p1_addr == EX_dst) && EX_we) begin
+	if ((p1_addr != 4'b0000) && (p1_addr == EX_dst) && EX_we) begin
 		if (EX_mem_re) begin
 		bubble1 = 1'b1;
 		src1sel_out = 3'b000;
 		end
 		else src1sel_out = 3'b111;
 	end
-        else if ((p1_addr == MEM_dst) && MEM_we) src0sel_out = 3'b100;
+        else if ((p1_addr != 4'b0000) && (p1_addr == MEM_dst) && MEM_we) src1sel_out = 3'b100;
 	else src1sel_out = src1sel;
         end
         
@@ -69,10 +71,13 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         hlt = 1'b0;
         re0 =1'b1;
         re1     = 1'b1;
-        we = 1'b1;
+        we = 1'b0;
         shamt = instr[3:0];
-        p0_addr = instr[3:0];
-        p1_addr = instr[7:4];
+// TODO
+	p0_addr = 4'b0000;
+	p1_addr = 4'b0000;
+
+
         dst_addr        = instr[11:8];
         funct   = 3'b0;
         flag_en = 2'b00;
@@ -83,46 +88,73 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         jumpR = 1'b0;
         // Specify which controls are changed from default for each operation
         case (instr[15:12])
-                ADD: flag_en = 2'b11;
+                ADD: begin
+			flag_en = 2'b11;
+        		we = 1'b1;
+        		p0_addr = instr[3:0];
+        		p1_addr = instr[7:4];
+		end
                 ADDz: begin
                         addz = 1'b1;
                         flag_en = 2'b11;
+        		we = 1'b1;
+        		p0_addr = instr[3:0];
+        		p1_addr = instr[7:4];
                 end
                 SUB: begin
                         funct = 3'b001;
                         flag_en = 2'b11;
+        		we = 1'b1;
+        		p0_addr = instr[3:0];
+        		p1_addr = instr[7:4];
                 end
                 AND: begin
                         funct = 3'b010;
                         flag_en = 2'b01;
+        		we = 1'b1;
+        		p0_addr = instr[3:0];
+        		p1_addr = instr[7:4];
                 end
                 NOR: begin
                         funct = 3'b011;
                         flag_en = 2'b01;
+        		we = 1'b1;
+        		p0_addr = instr[3:0];
+        		p1_addr = instr[7:4];
                 end
                 SLL: begin
                         funct = 3'b100;
                         flag_en = 2'b01;
+        		we = 1'b1;
+        		p0_addr = instr[3:0];
+        		p1_addr = instr[7:4];
                 end
                 SRL: begin
                         funct = 3'b101;
                         flag_en = 2'b01;
+        		we = 1'b1;
+        		p0_addr = instr[3:0];
+        		p1_addr = instr[7:4];
                 end
                 SRA: begin
                         funct = 3'b110;
                         flag_en = 2'b01;
+        		we = 1'b1;
+        		p0_addr = instr[3:0];
+        		p1_addr = instr[7:4];
                 end
                 LLB: begin
-                        src1sel = 3'b010;
+                        src1sel = 3'b001;
                         p0_addr = 4'b0000;
+        		we = 1'b1;
                 end
                 LHB: begin
                         funct = 3'b111;
-                        src1sel = 3'b010;
+                        src1sel = 3'b001;
                         p0_addr = instr[11:8];
+        		we = 1'b1;
                 end
                 HLT: begin
-                        we = 0;
                         hlt = 1'b1;
                 end
                 LW: begin
@@ -130,11 +162,11 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
                         src1sel = 3'b001;
                         mem_re = 1;
                         dst_sel = 2'b01;
+        		we = 1'b1;
                 end
                 SW: begin
                         p0_addr = instr[7:4];
                         p1_addr = instr[11:8];
-                        we = 0;
                         src1sel = 3'b001;
                         mem_we = 1;
                 end
@@ -144,13 +176,13 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
                         dst_sel = 2'b10;
                         src0sel = 3'b010;
                         branch_code = 4'b1111;
+        		we = 1'b1;
                 end
                 JR: begin
-                        we = 0;
                         jumpR = 1'b1;
+        		p1_addr = instr[7:4];
                 end
                 B: begin
-                        we = 0;
                         src1sel = 3'b011;
                         src0sel = 3'b001;
 			branch_code[3] = 1'b0;
