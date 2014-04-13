@@ -1,5 +1,5 @@
 // Andrew Gailey and Zach York
-module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1, dst_addr, we, src0sel_out, flag_en, mem_re, mem_we, dst_sel, neg, ov, branch_code, jumpR, EX_dst, EX_we, MEM_dst, MEM_we, EX_mem_re, MEM_mem_re, bubble, addz);
+module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1, dst_addr, we, src0sel_out, flag_en, mem_re, mem_we, dst_sel, neg, ov, branch_code, jumpR, ID_dst, ID_we, EX_dst, EX_we, ID_mem_re, EX_mem_re, bubble, addz);
         // Define the opcodes
         localparam ADD = 4'b0000;
         localparam ADDz = 4'b0001;
@@ -27,41 +27,59 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         localparam Bun = 3'b111;
 
         input[15:0] instr;
-	input [3:0] EX_dst, MEM_dst;
-        input zr, neg, ov, EX_we, MEM_we, EX_mem_re, MEM_mem_re;
-        output reg hlt, re0, re1, we, mem_re, mem_we, jumpR, bubble, addz;    // Controls
+	input [3:0] ID_dst, EX_dst;
+        input zr, neg, ov, ID_we, EX_we, ID_mem_re, EX_mem_re;
+        output reg hlt, re0, re1, we, mem_re, mem_we, jumpR, addz;    // Controls
         output reg [3:0] shamt, p0_addr, p1_addr, dst_addr,     // Shamt and reg addresses
                          branch_code;
         output reg [2:0] funct, src1sel_out, src0sel_out;       // Function bits for ALU
         output reg [1:0] flag_en, dst_sel;
+	output bubble;
 	reg [2:0] src0sel, src1sel;
 	reg bubble0, bubble1;
 
         // Forwarding Logic
+	assign bubble = bubble0 || bubble1;
 	always@(*) begin
-	bubble0 = 1'b0;
-	bubble1 = 1'b0;
-	bubble = bubble0 || bubble1;
-	if ((p0_addr != 4'b0000) && (p0_addr == EX_dst) && EX_we) begin
-		if (EX_mem_re) begin
-		bubble0 = 1'b1;
-		src0sel_out = 3'b000;
+	//bubble = bubble0 || bubble1;
+	if ((p0_addr != 4'b0000) && (p0_addr == ID_dst) && ID_we) begin
+		if (ID_mem_re) begin
+			bubble0 = 1'b1;
+			src0sel_out = 3'b000;
 		end
-		else src0sel_out = 3'b111;
+		else begin
+			src0sel_out = 3'b111;
+			bubble0 = 1'b0;
+		end
 	end
-        else if ((p0_addr != 4'b0000) && (p0_addr == MEM_dst) && MEM_we) src0sel_out = 3'b100;
-	else src0sel_out = src0sel;
+        else if ((p0_addr != 4'b0000) && (p0_addr == EX_dst) && EX_we) begin
+		src0sel_out = 3'b100;
+		bubble0 = 1'b0;
+	end
+	else begin
+		src0sel_out = src0sel;
+		bubble0 = 1'b0;
+	end
 
-	if ((p1_addr != 4'b0000) && (p1_addr == EX_dst) && EX_we) begin
-		if (EX_mem_re) begin
-		bubble1 = 1'b1;
-		src1sel_out = 3'b000;
+	if ((p1_addr != 4'b0000) && (p1_addr == ID_dst) && ID_we) begin
+		if (ID_mem_re) begin
+			bubble1 = 1'b1;
+			src1sel_out = 3'b000;
 		end
-		else src1sel_out = 3'b111;
+		else begin
+			src1sel_out = 3'b111;
+			bubble1 = 1'b0;
+		end
 	end
-        else if ((p1_addr != 4'b0000) && (p1_addr == MEM_dst) && MEM_we) src1sel_out = 3'b100;
-	else src1sel_out = src1sel;
+        else if ((p1_addr != 4'b0000) && (p1_addr == EX_dst) && EX_we) begin
+		src1sel_out = 3'b100;
+		bubble1 = 1'b0;
+	end
+	else begin
+		src1sel_out = src1sel;
+		bubble1 = 1'b0;
         end
+	end
         
         always@(*) begin
         // Default values
@@ -73,11 +91,8 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         re1     = 1'b1;
         we = 1'b0;
         shamt = instr[3:0];
-// TODO
 	p0_addr = 4'b0000;
 	p1_addr = 4'b0000;
-
-
         dst_addr        = instr[11:8];
         funct   = 3'b0;
         flag_en = 2'b00;

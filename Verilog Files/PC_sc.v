@@ -1,7 +1,7 @@
 // Andrew Gailey and Zach York
-module PC_sc(addr, addr_plus, hlt, rst, clk, MEM_ALU_out, EX_p1, br, jump);
+module PC_sc(addr, addr_plus, hlt, rst, clk, EX_ALU_out, EX_p1, br, jump);
 
-input [15:0] MEM_ALU_out, EX_p1;           // For jumps
+input [15:0] EX_ALU_out, EX_p1;           // For jumps
 output reg [15:0] addr;         // PC address
 output [15:0] addr_plus;        // PC address + 1
 input hlt, rst, clk, br, jump;        // Controls
@@ -14,7 +14,7 @@ always@(posedge clk, negedge rst) begin
 			if (!jump) addr <= addr_plus;
 			else addr <= EX_p1;
 		end
-                else addr <= MEM_ALU_out;
+                else addr <= EX_ALU_out;
         end
         else addr <= addr;
 end
