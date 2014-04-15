@@ -1,5 +1,5 @@
 // Andrew Gailey and Zach York
-module cpu(output reg MEM_hlt, input clk, input rst_n, output [15:0]pc);
+module cpu(output MEM_hlt, input clk, input rst_n, output [15:0]pc);
 
         reg zr, neg, o;                                 // Zero Flag Latch
 

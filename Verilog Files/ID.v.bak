@@ -200,7 +200,7 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
                 B: begin
                         src1sel = 3'b011;
                         src0sel = 3'b001;
-			branch_code[3] = 1'b1;
+			branch_code[3] = 1'b0;
                         branch_code[2:0] = instr[11:9];
                 end
                 default: begin
