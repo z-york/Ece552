@@ -1,5 +1,5 @@
 // Andrew Gailey and Zach York
-module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1, dst_addr, we, src0sel_out, flag_en, mem_re, mem_we, dst_sel, neg, ov, branch_code, jumpR, ID_dst, ID_we, EX_dst, EX_we, ID_mem_re, EX_mem_re, bubble, addz);
+module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1, dst_addr, we, src0sel_out, flag_en, mem_re, mem_we, dst_sel, neg, ov, branch_code, jumpR, ID_dst, ID_we, EX_dst, EX_we, ID_mem_re, EX_mem_re, bubble, addz, sw_p1_sel);
         // Define the opcodes
         localparam ADD = 4'b0000;
         localparam ADDz = 4'b0001;
@@ -33,7 +33,7 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         output reg [3:0] shamt, p0_addr, p1_addr, dst_addr,     // Shamt and reg addresses
                          branch_code;
         output reg [2:0] funct, src1sel_out, src0sel_out;       // Function bits for ALU
-        output reg [1:0] flag_en, dst_sel;
+        output reg [1:0] flag_en, dst_sel, sw_p1_sel;
 	output bubble;
 	reg [2:0] src0sel, src1sel;
 	reg bubble0, bubble1;
@@ -62,22 +62,38 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
 	end
 
 	if ((p1_addr != 4'b0000) && (p1_addr == ID_dst) && ID_we) begin
-		if (ID_mem_re) begin
+		if (instr[15:12] == SW) begin
+			src1sel_out = src1sel;
+			bubble1 = 1'b0;
+			sw_p1_sel = 2'b10;
+		end
+		else if (ID_mem_re) begin
 			bubble1 = 1'b1;
 			src1sel_out = 3'b000;
+			sw_p1_sel = 2'b00;
 		end
 		else begin
 			src1sel_out = 3'b111;
 			bubble1 = 1'b0;
+			sw_p1_sel = 2'b00;
 		end
 	end
         else if ((p1_addr != 4'b0000) && (p1_addr == EX_dst) && EX_we) begin
-		src1sel_out = 3'b100;
-		bubble1 = 1'b0;
+		if (instr[15:12] == SW) begin
+			src1sel_out = src1sel;
+			bubble1 = 1'b0;
+			sw_p1_sel = 2'b01;
+		end
+		else begin
+			src1sel_out = 3'b100;
+			bubble1 = 1'b0;
+			sw_p1_sel = 2'b00;
+		end
 	end
 	else begin
 		src1sel_out = src1sel;
 		bubble1 = 1'b0;
+		sw_p1_sel = 2'b00;
         end
 	end
         
