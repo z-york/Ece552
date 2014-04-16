@@ -184,7 +184,7 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 			EX_mem_re <= ID_mem_re;
 			EX_mem_we <= ID_mem_we;
 			EX_dst_sel <= ID_dst_sel;
-			EX_p1 <= ID_p1;
+			EX_p1 <= src1;
 			EX_ALU_out <= ALU_out;
 			EX_branch_code <= ID_branch_code;
 		end
