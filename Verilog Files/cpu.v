@@ -22,9 +22,9 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 
         // Instantiate each piece according to specifications
         //// FETCH ////
-        assign IF_set_nop = branch || jumpR;
-	assign pc_hlt = initial_hlt || bubble;
-        PC_sc PC(pc, addr_plus, pc_hlt, rst_n, clk, EX_ALU_out, ID_p1, branch, ID_jumpR);
+        assign IF_set_nop = branch || jumpR || ID_jumpR;
+	assign pc_hlt = initial_hlt || ID_hlt || EX_hlt || hlt || bubble;
+        PC_sc PC(pc, addr_plus, pc_hlt, rst_n, clk, EX_ALU_out, src1, branch, ID_jumpR);
         IM Mem(clk, pc, 1'b1,instr);
 	// FETCH FLOPS
 	always@(posedge clk or negedge rst_n) begin

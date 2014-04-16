@@ -20,19 +20,21 @@ integer indx;
 
 reg [15:0]mem[0:15];
 
+/*
 reg [3:0] dst_addr_lat;					// have to capture dst_addr from previous cycle
-reg [15:0] dst_lat;					// have to capture write data from previous cycle
+reg [15:0] dst_lat;						// have to capture write data from previous cycle
 reg we_lat;								// have to capture we from previous cycle
+*/
 
 //////////////////////////////////////////////////////////
 // Register file will come up uninitialized except for //
 // register zero which is hardwired to be zero.       //
 ///////////////////////////////////////////////////////
 initial begin
-  $readmemh("rfinit.txt",mem);
   mem[0] = 16'h0000;					// reg0 is always 0,
 end
 
+/*
 //////////////////////////////////////////////////
 // dst_addr, dst, & we all need to be latched  //
 // on clock low of previous cycle to maintain //
@@ -45,13 +47,14 @@ always @(clk,dst_addr,dst,we)
 	  dst_lat      <= dst;
 	  we_lat       <= we;
 	end
+*/
 
 //////////////////////////////////
 // RF is written on clock high //
 ////////////////////////////////
-always @(clk,we_lat,dst_addr_lat,dst_lat)
-  if (clk && we_lat && |dst_addr_lat)
-    mem[dst_addr_lat] <= dst_lat;
+always @(clk,we,dst_addr,dst)
+  if (clk && we && |dst_addr)
+    mem[dst_addr] <= dst;
 	
 //////////////////////////////
 // RF is read on clock low //
