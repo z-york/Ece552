@@ -1,10 +1,10 @@
 // Andrew Gailey and Zach York
-module cpu(output reg MEM_hlt, input clk, input rst_n, output [15:0]pc);
+module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 
         reg zr, neg, o;                                 // Zero Flag Latch
 
         wire[15:0] addr_plus, instr, dst, p0, p1, rd_data, ALU_out, src1, src0;
-        wire re0, re1, we, z, mem_we, mem_re, pc_hlt, bubble, IF_set_nop, hlt;
+        wire re0, re1, we, z, mem_we, mem_re, pc_hlt, bubble, IF_set_nop, initial_hlt;
         wire [3:0] shamt, p0_addr, p1_addr, dst_addr, branch_code;
         wire [2:0] funct, src1sel, src0sel;
         wire [1:0] flag_en, flag_en_out, dst_sel, ID_flag_en_out;
@@ -23,7 +23,7 @@ module cpu(output reg MEM_hlt, input clk, input rst_n, output [15:0]pc);
         // Instantiate each piece according to specifications
         //// FETCH ////
         assign IF_set_nop = branch || jumpR;
-	assign pc_hlt = hlt || bubble;
+	assign pc_hlt = initial_hlt || bubble;
         PC_sc PC(pc, addr_plus, pc_hlt, rst_n, clk, EX_ALU_out, ID_p1, branch, ID_jumpR);
         IM Mem(clk, pc, 1'b1,instr);
 	// FETCH FLOPS
@@ -53,8 +53,8 @@ module cpu(output reg MEM_hlt, input clk, input rst_n, output [15:0]pc);
         //// END FETCH////
 	////
         //// DECODE (and WRITEBACK) ////
-        ID decode(IF_instr, zr, src1sel, hlt, shamt, funct, p0_addr, re0, p1_addr, re1, dst_addr, we, src0sel, flag_en, mem_re, mem_we, dst_sel, neg, o, branch_code, jumpR, ID_dst_addr, ID_we, EX_dst_addr, EX_we, ID_mem_re, EX_mem_re, bubble, addz);
-        rf register(clk,p0_addr,p1_addr,p0,p1,re0,re1,EX_dst_addr,dst,EX_we,MEM_hlt);
+        ID decode(IF_instr, zr, src1sel, initial_hlt, shamt, funct, p0_addr, re0, p1_addr, re1, dst_addr, we, src0sel, flag_en, mem_re, mem_we, dst_sel, neg, o, branch_code, jumpR, ID_dst_addr, ID_we, EX_dst_addr, EX_we, ID_mem_re, EX_mem_re, bubble, addz);
+        rf register(clk,p0_addr,p1_addr,p0,p1,re0,re1,EX_dst_addr,dst,EX_we,hlt);
 	// DECODE FLOPS
 	always@(branch) begin
 		ID_set_nop = branch;
@@ -105,7 +105,7 @@ module cpu(output reg MEM_hlt, input clk, input rst_n, output [15:0]pc);
 		else begin
 			ID_instr <= IF_instr;
 			ID_addr_plus <= IF_addr_plus;
-			ID_hlt <= hlt;
+			ID_hlt <= initial_hlt;
 			ID_src1sel <= src1sel;
 			ID_src0sel <= src0sel;
 			ID_shamt <= shamt;
@@ -196,13 +196,13 @@ module cpu(output reg MEM_hlt, input clk, input rst_n, output [15:0]pc);
         // MEM FLOPS
         always@(posedge clk or negedge rst_n) begin
 		if(!rst_n) begin
-			MEM_hlt <= 1'b0;
+			hlt <= 1'b0;
 			MEM_dst_addr <= 4'b0000;
 			MEM_we <= 0;
 			MEM_dst <= 16'h0000;
 		end
 		else begin
-			MEM_hlt <= EX_hlt;
+			hlt <= EX_hlt;
 			MEM_dst_addr <= EX_dst_addr;
 			MEM_we <= EX_we;
 			MEM_dst <= dst;
