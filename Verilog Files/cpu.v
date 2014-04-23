@@ -4,7 +4,7 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
         reg zr, neg, o;                                 // Zero Flag Latch
 
         wire[15:0] addr_plus, instr, dst, p0, p1, rd_data, ALU_out, src1, src0, ID_p1_out, EX_p1_out;
-        wire re0, re1, we, z, mem_we, mem_re, pc_hlt, bubble, IF_set_nop, initial_hlt;
+        wire re0, re1, we, z, mem_we, mem_re, pc_hlt, pc_hold, bubble, IF_set_nop, initial_hlt;
         wire [3:0] shamt, p0_addr, p1_addr, dst_addr, branch_code;
         wire [2:0] funct, src1sel, src0sel;
         wire [1:0] flag_en, flag_en_out, dst_sel, sw_p1_sel, ID_flag_en_out;
@@ -22,9 +22,10 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 
         // Instantiate each piece according to specifications
         //// FETCH ////
-        assign IF_set_nop = branch || jumpR || ID_jumpR;
-	assign pc_hlt = initial_hlt || ID_hlt || EX_hlt || hlt || bubble;
-        PC_sc PC(pc, addr_plus, pc_hlt, rst_n, clk, EX_ALU_out, src1, branch, ID_jumpR);
+        assign IF_set_nop = branch || jumpR || ID_jumpR || pc_hlt;
+	assign pc_hlt = EX_hlt || hlt;
+	assign pc_hold = initial_hlt || ID_hlt || bubble;
+        PC_sc PC(pc, addr_plus, pc_hlt, pc_hold, rst_n, clk, EX_ALU_out, src1, branch, ID_jumpR);
         IM Mem(clk, pc, 1'b1,instr);
 	// FETCH FLOPS
 	always@(posedge clk or negedge rst_n) begin
@@ -56,8 +57,8 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
         ID decode(IF_instr, zr, src1sel, initial_hlt, shamt, funct, p0_addr, re0, p1_addr, re1, dst_addr, we, src0sel, flag_en, mem_re, mem_we, dst_sel, neg, o, branch_code, jumpR, ID_dst_addr, ID_we, EX_dst_addr, EX_we, ID_mem_re, EX_mem_re, bubble, addz, sw_p1_sel);
         rf register(clk,p0_addr,p1_addr,p0,p1,re0,re1,EX_dst_addr,dst,EX_we,hlt);
 	// DECODE FLOPS
-	always@(branch) begin
-		ID_set_nop = branch;
+	always@(branch or bubble or ID_hlt or EX_hlt or hlt) begin
+		ID_set_nop = branch || bubble || ID_hlt || EX_hlt || hlt;
 	end
 	always@(posedge clk or negedge rst_n) begin
 		if(!rst_n) begin

@@ -190,7 +190,7 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
                 end
                 LW: begin
                         p0_addr = instr[7:4];
-                        src1sel = 3'b001;
+                        src1sel = 3'b010;
                         mem_re = 1;
                         dst_sel = 2'b01;
         		we = 1'b1;
@@ -198,7 +198,7 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
                 SW: begin
                         p0_addr = instr[7:4];
                         p1_addr = instr[11:8];
-                        src1sel = 3'b001;
+                        src1sel = 3'b010;
                         mem_we = 1;
                 end
                 JAL: begin
