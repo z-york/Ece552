@@ -1,5 +1,5 @@
 // Andrew Gailey and Zach York
-module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1, dst_addr, we, src0sel_out, flag_en, mem_re, mem_we, dst_sel, neg, ov, branch_code, jumpR, ID_dst, ID_we, EX_dst, EX_we, ID_mem_re, EX_mem_re, bubble, addz, sw_p1_sel);
+module ID(instr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1, dst_addr, we_out, src0sel_out, flag_en, mem_re, mem_we, dst_sel, branch_code, jumpR, ID_dst, ID_we, EX_dst, EX_we, ID_mem_re, EX_mem_re, bubble, addz, sw_p1_sel, nonsat);
         // Define the opcodes
         localparam ADD = 4'b0000;
         localparam ADDz = 4'b0001;
@@ -28,15 +28,15 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
 
         input[15:0] instr;
 	input [3:0] ID_dst, EX_dst;
-        input zr, neg, ov, ID_we, EX_we, ID_mem_re, EX_mem_re;
-        output reg hlt, re0, re1, we, mem_re, mem_we, jumpR, addz;    // Controls
+        input ID_we, EX_we, ID_mem_re, EX_mem_re;
+        output reg hlt, re0, re1, mem_re, mem_we, jumpR, addz, nonsat, we_out;    // Controls
         output reg [3:0] shamt, p0_addr, p1_addr, dst_addr,     // Shamt and reg addresses
                          branch_code;
         output reg [2:0] funct, src1sel_out, src0sel_out;       // Function bits for ALU
         output reg [1:0] flag_en, dst_sel, sw_p1_sel;
 	output bubble;
 	reg [2:0] src0sel, src1sel;
-	reg bubble0, bubble1;
+	reg bubble0, bubble1, we;
 
         // Forwarding Logic
 	assign bubble = bubble0 || bubble1;
@@ -100,6 +100,7 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         always@(*) begin
         // Default values
 	addz = 1'b0;
+	nonsat = 1'b0;
         src1sel = 3'b000;
         src0sel = 3'b000;
         hlt = 1'b0;
@@ -140,6 +141,7 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         		p1_addr = instr[7:4];
                 end
                 AND: begin
+			nonsat = 1'b1;
                         funct = 3'b010;
                         flag_en = 2'b01;
         		we = 1'b1;
@@ -147,6 +149,7 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         		p1_addr = instr[7:4];
                 end
                 NOR: begin
+			nonsat = 1'b1;
                         funct = 3'b011;
                         flag_en = 2'b01;
         		we = 1'b1;
@@ -154,6 +157,7 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         		p1_addr = instr[7:4];
                 end
                 SLL: begin
+			nonsat = 1'b1;
                         funct = 3'b100;
                         flag_en = 2'b01;
         		we = 1'b1;
@@ -161,6 +165,7 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         		p1_addr = instr[7:4];
                 end
                 SRL: begin
+			nonsat = 1'b1;
                         funct = 3'b101;
                         flag_en = 2'b01;
         		we = 1'b1;
@@ -168,6 +173,7 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         		p1_addr = instr[7:4];
                 end
                 SRA: begin
+			nonsat = 1'b1;
                         funct = 3'b110;
                         flag_en = 2'b01;
         		we = 1'b1;
@@ -175,11 +181,13 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         		p1_addr = instr[7:4];
                 end
                 LLB: begin
+			nonsat = 1'b1;
                         src1sel = 3'b001;
                         p0_addr = 4'b0000;
         		we = 1'b1;
                 end
                 LHB: begin
+			nonsat = 1'b1;
                         funct = 3'b111;
                         src1sel = 3'b001;
                         p0_addr = instr[11:8];
@@ -189,6 +197,7 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
                         hlt = 1'b1;
                 end
                 LW: begin
+			nonsat = 1'b1;
                         p0_addr = instr[7:4];
                         src1sel = 3'b010;
                         mem_re = 1;
@@ -196,12 +205,14 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         		we = 1'b1;
                 end
                 SW: begin
+			nonsat = 1'b1;
                         p0_addr = instr[7:4];
                         p1_addr = instr[11:8];
                         src1sel = 3'b010;
                         mem_we = 1;
                 end
                 JAL: begin
+			nonsat = 1'b1;
                         dst_addr = 4'b1111;
                         src1sel = 3'b011;
                         dst_sel = 2'b10;
@@ -210,10 +221,12 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
         		we = 1'b1;
                 end
                 JR: begin
+			nonsat = 1'b1;
                         jumpR = 1'b1;
         		p1_addr = instr[7:4];
                 end
                 B: begin
+			nonsat = 1'b1;
                         src1sel = 3'b011;
                         src0sel = 3'b001;
 			branch_code[3] = 1'b1;
@@ -223,4 +236,7 @@ module ID(instr, zr, src1sel_out, hlt, shamt, funct, p0_addr, re0, p1_addr, re1,
                 end
 endcase
 end
+	always@(dst_addr or we) begin
+		we_out = |dst_addr ? we : 1'b0;
+	end
 endmodule

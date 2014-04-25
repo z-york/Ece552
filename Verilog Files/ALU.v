@@ -1,11 +1,12 @@
 //Andrew Gailey and Zach York
-module ALU (dst, ov, zr, shamt, func, src1, src0);
+module ALU (dst, ov, zr, shamt, func, src1, src0, nonsat);
 
 output [15:0] dst;
 output ov, zr;
 input [3:0] shamt;
 input [15:0] src1, src0;
 input [2:0] func;
+input nonsat;
 
 wire [15:0] shift, tmpsrc1, tmpsrc0, norout, andout, addout0, addout;
 wire [1:0] Sel;
@@ -27,7 +28,7 @@ assign addout0 = tmpsrc1 + tmpsrc0 + cin;
 assign andout = src0 & src1;
 assign norout = ~(src0 | src1);
 
-assign ov = func[2] ? 1'b0 : func[1] ? 1'b0 : (~(tmpsrc0[15] ^ tmpsrc1[15]))? (tmpsrc0[15] ^ addout0[15]): 1'b0 ;
+assign ov = nonsat ? 1'b0 : func[2] ? 1'b0 : func[1] ? 1'b0 : (~(tmpsrc0[15] ^ tmpsrc1[15]))? (tmpsrc0[15] ^ addout0[15]): 1'b0 ;
 assign addout = ov? (src1[15] ? 16'h8000 : 16'h7FFF) : addout0;
 
 assign dst = func[2]? (lhb ? addout: shift) : (func[1]? (func[0]? norout: andout) : addout);
