@@ -3,8 +3,8 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 
         reg zr, neg, o;                                 // Zero Flag Latch
 
-        wire[15:0] addr_plus, instr, dst, p0, p1, rd_data, ALU_out, src1, src0, ID_p1_out, EX_p1_out;
-        wire re0, re1, we, z, mem_we, mem_re, pc_hlt, pc_hold, bubble, IF_set_nop, ID_set_nop, initial_hlt, nonsat, ID_hlt_forward, EX_hlt_forward, MEM_hlt_forward;
+        wire[15:0] addr_plus, instr, dst, p0, p1, rd_data, ALU_out, src1, shift_src1, src0, ID_p1_out, EX_p1_out;
+        wire re0, re1, we, z, ov, mem_we, mem_re, pc_hlt, pc_hold, bubble, IF_set_nop, ID_set_nop, initial_hlt, nonsat, ID_hlt_forward, EX_hlt_forward, MEM_hlt_forward;
         wire [3:0] shamt, p0_addr, p1_addr, dst_addr, branch_code;
         wire [2:0] funct, src1sel, src0sel;
         wire [1:0] flag_en, flag_en_out, dst_sel, sw_p1_sel, ID_flag_en_out;
@@ -132,9 +132,9 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 	//// END DECODE ////
 
         //// EXECUTE ////
-        SRC1_MUX choose(src1, ID_instr[7:0], ID_p1, EX_ALU_out, MEM_dst, ID_src1sel, ID_addr_plus);
+        SRC1_MUX choose(src1, shift_src1, ID_instr[7:0], ID_p1, EX_ALU_out, MEM_dst, ID_src1sel, ID_addr_plus);
         SRC0_MUX choose0(src0, ID_instr[11:0], ID_p0, EX_ALU_out, MEM_dst, ID_src0sel);
-        ALU execution(ALU_out, ov, z, ID_shamt, ID_funct, src1, src0, ID_nonsat);
+        ALU execution(ALU_out, ov, z, ID_shamt, ID_funct, src1, shift_src1, src0, ID_nonsat);
 	// EXECUTE FLOPS
 	// flags
 	always@(posedge clk or negedge rst_n) begin

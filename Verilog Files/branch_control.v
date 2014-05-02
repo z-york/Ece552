@@ -14,6 +14,7 @@ localparam Bov = 3'b110;
 localparam Bun = 3'b111;
 
 always@(*) begin
+branch = 1'b0;
 if(branch_code[3]) begin
         case(branch_code[2:0])
         	Bneq:   if (!zr) branch = 1'b1;

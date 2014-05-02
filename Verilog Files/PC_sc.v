@@ -10,14 +10,15 @@ input hlt, hold, rst, clk, br, jump;        // Controls
 always@(posedge clk, negedge rst) begin
         if (!rst) addr <= 16'b0;
         else if (!hlt) begin
-                if (!br) begin
+                if (br) addr <= EX_ALU_out;
+                else begin
 			if (!jump) begin
 				if(!hold) addr <= addr_plus;
 				else addr <= addr;
 			end
 			else addr <= EX_p1;
 		end
-                else addr <= EX_ALU_out;
+                //else addr <= EX_ALU_out;
         end
         else addr <= addr;
 end
