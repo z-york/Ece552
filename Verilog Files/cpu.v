@@ -4,11 +4,11 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
         reg zr, neg, o;                                 // Zero Flag Latch
 
         wire[15:0] addr_plus, instr, dst, p0, p1, rd_data, ALU_out, src1, shift_src1, src0, ID_p1_out, EX_p1_out;
-        wire re0, re1, we, z, ov, mem_we, mem_re, pc_hlt, pc_hold, bubble, IF_set_nop, ID_set_nop, initial_hlt, nonsat, ID_hlt_forward, EX_hlt_forward, MEM_hlt_forward;
+        wire re0, re1, we, z, ov, mem_we, mem_re, pc_hlt, pc_hold, bubble, IF_set_nop, ID_set_nop, initial_hlt, nonsat, ID_hlt_forward, EX_hlt_forward, MEM_hlt_forward, cache_rd;
         wire [3:0] shamt, p0_addr, p1_addr, dst_addr, branch_code;
         wire [2:0] funct, src1sel, src0sel;
         wire [1:0] flag_en, flag_en_out, dst_sel, sw_p1_sel, ID_flag_en_out;
-	wire branch, jumpR, addz, addz_we, we_out;
+	wire branch, jumpR, addz, addz_we, we_out, i_rdy, d_rdy;
 	// FLOP OUTPUTS //
 	reg EX_we, ID_we, MEM_we, ID_mem_re, ID_mem_we, MEM_mem_re, ID_nonsat, IF_nop, ID_hlt, ID_addz, ID_jumpR, EX_hlt, EX_mem_re, EX_mem_we, EX_sw_p1_sel, MEM_hlt;
 	reg [1:0] ID_flag_en, ID_dst_sel, EX_dst_sel, ID_sw_p1_sel;
@@ -20,14 +20,19 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 	//assign ID_flag_en_out = {2{!ID_nop}} & ID_flag_en;
 	//assign we_out = {!IF_nop} & we;
 
+	//// CACHE CONTROLLER ////
+	CC Cache(instr, i_rdy, cache_rd, d_rdy, clk, rst_n, pc, 1'b1, 16'h0000, 16'h0000, 1'b0, 1'b0);
+
+
+
         // Instantiate each piece according to specifications
         //// FETCH ////
         assign IF_set_nop = branch || jumpR || ID_jumpR || pc_hlt;
 	assign pc_hlt = EX_hlt || hlt;
-	assign pc_hold = initial_hlt || ID_hlt || bubble;
+	assign pc_hold = initial_hlt || ID_hlt || bubble || ~i_rdy;
 
         PC_sc PC(pc, addr_plus, pc_hlt, pc_hold, rst_n, clk, ALU_out, src1, branch, ID_jumpR);
-        IM Mem(clk, pc, 1'b1,instr);
+        //IM Mem(clk, pc, 1'b1,instr);
 	// FETCH FLOPS
 	always@(posedge clk or negedge rst_n) begin
 		if(!rst_n) begin
@@ -35,6 +40,11 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 			IF_instr <= 16'h0000;
 			IF_nop <= 1'b1;
 		end
+                else if (!i_rdy) begin
+			IF_addr_plus <= IF_addr_plus;
+			IF_instr <= IF_instr;
+			IF_nop <= IF_nop;
+                end
 		else if (IF_set_nop) begin
 			IF_addr_plus <= 16'h0000;
 			IF_instr <= 16'h0000;
@@ -84,6 +94,28 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 			ID_nonsat <= 1'b0;
 			ID_sw_p1_sel <= 2'b00;
 		end
+                else if (!i_rdy) begin
+			ID_instr <= ID_instr;
+			ID_addr_plus <= ID_addr_plus;
+			ID_hlt <= ID_hlt;
+			ID_src1sel <= ID_src1sel;
+			ID_src0sel <= ID_src0sel;
+			ID_shamt <= ID_shamt;
+			ID_funct <= ID_funct;
+			ID_dst_addr <= ID_dst_addr;
+			ID_we <= ID_we;
+			ID_flag_en <= ID_flag_en;
+			ID_mem_re <= ID_mem_re;
+			ID_mem_we <= ID_mem_we;
+			ID_dst_sel <= ID_dst_sel;
+			ID_p0 <= ID_p0;
+			ID_p1 <= ID_p1;
+			ID_addz <= ID_addz;
+			ID_jumpR <= ID_jumpR;
+			ID_branch_code <= ID_branch_code;
+			ID_nonsat <= ID_nonsat;
+			ID_sw_p1_sel <= ID_sw_p1_sel;
+                end
 		else if (ID_set_nop) begin
 			ID_instr <= 16'h0000;
 			ID_addr_plus <= 16'h0000;
@@ -139,19 +171,19 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 	// flags
 	always@(posedge clk or negedge rst_n) begin
                 if(!rst_n) neg <= 1'b0;
-                else if(ID_flag_en[1] && !branch) neg <= ALU_out[15];
+                else if(ID_flag_en[1] && !branch && i_rdy) neg <= ALU_out[15];
                 else neg <= neg;
         end
 
         always@(posedge clk or negedge rst_n) begin
                 if(!rst_n) zr <= 1'b0;
-                else if(ID_flag_en[0] && !branch) zr <= z;
+                else if(ID_flag_en[0] && !branch && i_rdy) zr <= z;
                 else zr <= zr;
         end 
 
         always@(posedge clk or negedge rst_n) begin
                 if(!rst_n) o <= 1'b0;
-                else if(ID_flag_en[1] && !branch) o <= ov;
+                else if(ID_flag_en[1] && !branch && i_rdy) o <= ov;
                 else o <= o;
         end
 	// The rest
@@ -171,6 +203,19 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 			EX_branch_code <= 4'b0000;
 			EX_sw_p1_sel <= 1'b0;
 		end
+                else if (!i_rdy) begin
+			EX_addr_plus <= EX_addr_plus;
+			EX_hlt <= EX_hlt;
+			EX_dst_addr <= EX_dst_addr;
+			EX_we <= EX_we;
+			EX_mem_re <= EX_mem_re;
+			EX_mem_we <= EX_mem_we;
+			EX_dst_sel <= EX_dst_sel;
+			EX_p1 <= EX_p1;
+			EX_ALU_out <= EX_ALU_out;
+			EX_branch_code <= EX_branch_code;
+			EX_sw_p1_sel <= EX_sw_p1_sel;
+                end
 		else begin
 			EX_addr_plus <= ID_addr_plus;
 			EX_hlt <= ID_hlt;
@@ -197,6 +242,12 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 			MEM_we <= 0;
 			MEM_dst <= 16'h0000;
 		end
+                else if (!i_rdy) begin
+			MEM_hlt <= MEM_hlt;
+			MEM_dst_addr <= MEM_dst_addr;
+			MEM_we <= MEM_we;
+			MEM_dst <= MEM_dst;
+                end
 		else begin
 			MEM_hlt <= EX_hlt;
 			MEM_dst_addr <= EX_dst_addr;
