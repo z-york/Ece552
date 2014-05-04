@@ -4,13 +4,13 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
         reg zr, neg, o;                                 // Zero Flag Latch
 
         wire[15:0] addr_plus, instr, dst, p0, p1, rd_data, ALU_out, src1, shift_src1, src0, ID_p1_out, EX_p1_out;
-        wire re0, re1, we, z, ov, mem_we, mem_re, pc_hlt, pc_hold, bubble, IF_set_nop, ID_set_nop, initial_hlt, nonsat, ID_hlt_forward, EX_hlt_forward, MEM_hlt_forward, cache_rd;
+        wire re0, re1, we, z, ov, mem_we, mem_re, pc_hlt, pc_hold, bubble, IF_set_nop, ID_set_nop, initial_hlt, nonsat, ID_hlt_forward, EX_hlt_forward, MEM_hlt_forward, IF_hlt_forward;
         wire [3:0] shamt, p0_addr, p1_addr, dst_addr, branch_code;
         wire [2:0] funct, src1sel, src0sel;
         wire [1:0] flag_en, flag_en_out, dst_sel, sw_p1_sel, ID_flag_en_out;
 	wire branch, jumpR, addz, addz_we, we_out, i_rdy, d_rdy;
 	// FLOP OUTPUTS //
-	reg EX_we, ID_we, MEM_we, ID_mem_re, ID_mem_we, MEM_mem_re, ID_nonsat, IF_nop, ID_hlt, ID_addz, ID_jumpR, EX_hlt, EX_mem_re, EX_mem_we, EX_sw_p1_sel, MEM_hlt;
+	reg EX_we, ID_we, MEM_we, ID_mem_re, ID_mem_we, MEM_mem_re, ID_nonsat, IF_nop, ID_hlt, ID_addz, ID_jumpR, EX_hlt, EX_mem_re, EX_mem_we, EX_sw_p1_sel, MEM_hlt, hlt_instr;
 	reg [1:0] ID_flag_en, ID_dst_sel, EX_dst_sel, ID_sw_p1_sel;
 	reg [2:0] ID_src1sel, ID_src0sel, ID_funct;
 	reg [3:0] ID_shamt, MEM_dst_addr, ID_dst_addr, EX_dst_addr, ID_branch_code, EX_branch_code;
@@ -21,15 +21,13 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 	//assign we_out = {!IF_nop} & we;
 
 	//// CACHE CONTROLLER ////
-	CC Cache(instr, i_rdy, cache_rd, d_rdy, clk, rst_n, pc, 1'b1, 16'h0000, 16'h0000, 1'b0, 1'b0);
-
-
+	CC Cache(instr, i_rdy, rd_data, d_rdy, clk, rst_n, pc, 1'b1, EX_ALU_out, EX_p1_out, EX_mem_re, EX_mem_we);
 
         // Instantiate each piece according to specifications
         //// FETCH ////
         assign IF_set_nop = branch || jumpR || ID_jumpR || pc_hlt;
 	assign pc_hlt = EX_hlt || hlt;
-	assign pc_hold = initial_hlt || ID_hlt || bubble || ~i_rdy;
+	assign pc_hold = initial_hlt || ID_hlt || bubble || ~i_rdy || ~d_rdy;
 
         PC_sc PC(pc, addr_plus, pc_hlt, pc_hold, rst_n, clk, ALU_out, src1, branch, ID_jumpR);
         //IM Mem(clk, pc, 1'b1,instr);
@@ -40,7 +38,7 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 			IF_instr <= 16'h0000;
 			IF_nop <= 1'b1;
 		end
-                else if (!i_rdy) begin
+                else if (!i_rdy || !d_rdy) begin
 			IF_addr_plus <= IF_addr_plus;
 			IF_instr <= IF_instr;
 			IF_nop <= IF_nop;
@@ -94,7 +92,7 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 			ID_nonsat <= 1'b0;
 			ID_sw_p1_sel <= 2'b00;
 		end
-                else if (!i_rdy) begin
+                else if (!i_rdy || !d_rdy) begin
 			ID_instr <= ID_instr;
 			ID_addr_plus <= ID_addr_plus;
 			ID_hlt <= ID_hlt;
@@ -171,19 +169,19 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 	// flags
 	always@(posedge clk or negedge rst_n) begin
                 if(!rst_n) neg <= 1'b0;
-                else if(ID_flag_en[1] && !branch && i_rdy) neg <= ALU_out[15];
+                else if(ID_flag_en[1] && !branch && i_rdy && d_rdy) neg <= ALU_out[15];
                 else neg <= neg;
         end
 
         always@(posedge clk or negedge rst_n) begin
                 if(!rst_n) zr <= 1'b0;
-                else if(ID_flag_en[0] && !branch && i_rdy) zr <= z;
+                else if(ID_flag_en[0] && !branch && i_rdy && d_rdy) zr <= z;
                 else zr <= zr;
         end 
 
         always@(posedge clk or negedge rst_n) begin
                 if(!rst_n) o <= 1'b0;
-                else if(ID_flag_en[1] && !branch && i_rdy) o <= ov;
+                else if(ID_flag_en[1] && !branch && i_rdy && d_rdy) o <= ov;
                 else o <= o;
         end
 	// The rest
@@ -203,7 +201,7 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 			EX_branch_code <= 4'b0000;
 			EX_sw_p1_sel <= 1'b0;
 		end
-                else if (!i_rdy) begin
+                else if (!i_rdy || !d_rdy) begin
 			EX_addr_plus <= EX_addr_plus;
 			EX_hlt <= EX_hlt;
 			EX_dst_addr <= EX_dst_addr;
@@ -232,7 +230,7 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 	end
 	assign EX_p1_out = EX_sw_p1_sel ? MEM_dst : EX_p1;
         //// MEM ////
-        DM mem(clk, EX_ALU_out, EX_mem_re, EX_mem_we, EX_p1_out, rd_data);
+        //DM mem(clk, EX_ALU_out, EX_mem_re, EX_mem_we, EX_p1_out, rd_data);
         DST_MUX destination(dst, EX_ALU_out, rd_data, EX_addr_plus, EX_dst_sel);
         // MEM FLOPS
         always@(posedge clk or negedge rst_n) begin
@@ -242,7 +240,7 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 			MEM_we <= 0;
 			MEM_dst <= 16'h0000;
 		end
-                else if (!i_rdy) begin
+                else if (!i_rdy || !d_rdy) begin
 			MEM_hlt <= MEM_hlt;
 			MEM_dst_addr <= MEM_dst_addr;
 			MEM_we <= MEM_we;
@@ -258,11 +256,17 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 	// Branch Control
         branch_control bc(branch, neg, o, zr, ID_branch_code);
 
-	// Halt Forwarding
-	always@(MEM_hlt or ID_hlt_forward or EX_hlt_forward or MEM_hlt_forward) begin
-		hlt = MEM_hlt || ID_hlt_forward || EX_hlt_forward || MEM_hlt_forward;
+	// Halt Forwarding, only allowed on clock low (so decode outputs and addz_we have time to settle)
+	always@(*) begin
+            if(~clk) hlt = MEM_hlt || IF_hlt_forward || ID_hlt_forward || EX_hlt_forward || MEM_hlt_forward;
 	end
-	assign ID_hlt_forward = initial_hlt && !MEM_we && !EX_we && !addz_we && !EX_mem_we && !ID_mem_we && !branch;
+        always@(*) begin
+            hlt_instr = 1'b0;
+            if(&instr[15:12] == 1'b1) hlt_instr = 1'b1;
+        end
+        assign IF_hlt_forward = hlt_instr && !jumpR && !we && !mem_we && !branch_code[3] && !MEM_we && !EX_we && !addz_we 
+                                       && !EX_mem_we && !ID_mem_we && !branch && !ID_jumpR;
+	assign ID_hlt_forward = initial_hlt && !MEM_we && !EX_we && !addz_we && !EX_mem_we && !ID_mem_we && !branch && !ID_jumpR;
 	assign EX_hlt_forward = ID_hlt && !MEM_we && !EX_we && !EX_mem_we;
 	assign MEM_hlt_forward = EX_hlt && !MEM_we;
 endmodule 
