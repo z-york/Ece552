@@ -7,15 +7,15 @@ module cpu(output reg hlt, input clk, input rst_n, output [15:0]pc);
 // Intermediate wires and Control signals
 wire[15:0] addr_plus, instr, dst, p0, p1, rd_data, ALU_out, src1, shift_src1, src0, ID_p1_out, EX_p1_out;
 wire re0, re1, we, z, ov, mem_we, mem_re, pc_hlt, pc_hold, bubble, IF_set_nop, ID_set_nop, initial_hlt, 
-     nonsat, ID_hlt_forward, EX_hlt_forward, MEM_hlt_forward;
+     ID_hlt_forward, EX_hlt_forward, MEM_hlt_forward; //,nonsat;
 wire [3:0] shamt, p0_addr, p1_addr, dst_addr, branch_code;
 wire [2:0] funct, src1sel, src0sel;
 wire [1:0] flag_en, flag_en_out, dst_sel, sw_p1_sel, ID_flag_en_out;
 wire branch, jumpR, addz, addz_we, we_out, i_rdy, d_rdy;
 
 // Flops
-reg EX_we, ID_we, MEM_we, ID_mem_re, ID_mem_we, MEM_mem_re, ID_nonsat, IF_nop, ID_hlt, ID_addz, ID_jumpR, 
-    EX_hlt, EX_mem_re, EX_mem_we, EX_sw_p1_sel, MEM_hlt, zr, neg, o;
+reg EX_we, ID_we, MEM_we, ID_mem_re, ID_mem_we, MEM_mem_re, IF_nop, ID_hlt, ID_addz, ID_jumpR, 
+    EX_hlt, EX_mem_re, EX_mem_we, EX_sw_p1_sel, MEM_hlt, zr, neg, o; //, ID_nonsat;
 reg [1:0] ID_flag_en, ID_dst_sel, EX_dst_sel, ID_sw_p1_sel;
 reg [2:0] ID_src1sel, ID_src0sel, ID_funct;
 reg [3:0] ID_shamt, MEM_dst_addr, ID_dst_addr, EX_dst_addr, ID_branch_code, EX_branch_code;
@@ -82,7 +82,7 @@ assign ID_set_nop = branch || bubble || ID_hlt || EX_hlt || hlt || IF_nop;
 // Instruction Decode
 ID decode(IF_instr, src1sel, initial_hlt, shamt, funct, p0_addr, re0, p1_addr, re1, dst_addr, we, 
           src0sel, flag_en, mem_re, mem_we, dst_sel, branch_code, jumpR, ID_dst_addr, ID_we, 
-          EX_dst_addr, EX_we, ID_mem_re, EX_mem_re, bubble, addz, sw_p1_sel, nonsat);
+          EX_dst_addr, EX_we, ID_mem_re, EX_mem_re, bubble, addz, sw_p1_sel); //, nonsat);
 
 // Register File
 rf register(clk,p0_addr,p1_addr,p0,p1,re0,re1,EX_dst_addr,dst,EX_we,hlt);
@@ -108,7 +108,7 @@ always@(posedge clk or negedge rst_n) begin
         ID_addz <= 1'b0;
         ID_jumpR <= 1'b0;
         ID_branch_code <= 4'b0000;
-        ID_nonsat <= 1'b0;
+        //ID_nonsat <= 1'b0;
         ID_sw_p1_sel <= 2'b00;
     end
     else if (!i_rdy || !d_rdy) begin // Hold if caches not ready
@@ -130,7 +130,7 @@ always@(posedge clk or negedge rst_n) begin
         ID_addz <= ID_addz;
         ID_jumpR <= ID_jumpR;
         ID_branch_code <= ID_branch_code;
-        ID_nonsat <= ID_nonsat;
+        //ID_nonsat <= ID_nonsat;
         ID_sw_p1_sel <= ID_sw_p1_sel;
     end
     else if (ID_set_nop) begin // Insert NOP
@@ -152,7 +152,7 @@ always@(posedge clk or negedge rst_n) begin
         ID_addz <= 1'b0;
         ID_jumpR <= 1'b0;
         ID_branch_code <= 4'b0000;
-        ID_nonsat <= 1'b0;
+        //ID_nonsat <= 1'b0;
         ID_sw_p1_sel <= 2'b00;
     end
     else begin // Latch next instruction
@@ -174,7 +174,7 @@ always@(posedge clk or negedge rst_n) begin
         ID_addz <= addz;
         ID_jumpR <= jumpR;
         ID_branch_code <= branch_code;
-        ID_nonsat <= nonsat;
+        //ID_nonsat <= nonsat;
         ID_sw_p1_sel <= sw_p1_sel;
     end
 end
@@ -193,7 +193,7 @@ SRC1_MUX choose(src1, shift_src1, ID_instr[7:0], ID_p1, EX_ALU_out, MEM_dst, ID_
 SRC0_MUX choose0(src0, ID_instr[11:0], ID_p0, EX_ALU_out, MEM_dst, ID_src0sel);
 
 // ALU
-ALU execution(ALU_out, ov, z, ID_shamt, ID_funct, src1, shift_src1, src0, ID_nonsat);
+ALU execution(ALU_out, ov, z, ID_shamt, ID_funct, src1, shift_src1, src0); //, ID_nonsat);
 
 // Branch Control (Branches are resolved in this stage)
 branch_control bc(branch, neg, o, zr, ID_branch_code);

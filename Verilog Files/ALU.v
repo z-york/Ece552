@@ -4,7 +4,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 module ALU (output [15:0]dst, output ov, output zr, input [3:0]shamt, 
             input [2:0]func, input [15:0]src1, input [15:0]shift_src1, 
-            input [15:0]src0, input nonsat);
+            input [15:0]src0); //, input nonsat);
 
 // Intermediate Wires
 wire [15:0] shift, tmpsrc1, tmpsrc0, norout, andout, addout0, addout;
@@ -53,12 +53,17 @@ assign tmpsrc1 = func[2] ? shift
 // Output Formatting and Selection //
 /////////////////////////////////////
 // Make sure overflow is only set for ADD, ADDZ, SUB
-assign ov = nonsat ? 1'b0 
-                   : func[2] ? 1'b0 
-                             : func[1] ? 1'b0 
-                                       : (~(tmpsrc0[15] ^ tmpsrc1[15])) ? 
-                                                     (tmpsrc0[15] ^ addout0[15])
-                                                   : 1'b0 ;
+//assign ov = nonsat ? 1'b0 
+//                   : func[2] ? 1'b0 
+//                             : func[1] ? 1'b0 
+//                                       : (~(tmpsrc0[15] ^ tmpsrc1[15])) ? 
+//                                                     (tmpsrc0[15] ^ addout0[15])
+//                                                   : 1'b0 ;
+// Make sure overflow is only set for ADD, ADDZ, SUB
+assign ov = func[2] ? 1'b0 
+                    : func[1] ? 1'b0 
+                              : (~(tmpsrc0[15] ^ tmpsrc1[15])) ? (tmpsrc0[15] ^ addout0[15])
+                                                               : 1'b0 ;
 // Saturate if there is overflow
 assign addout = ov ? (src1[15] ? 16'h8000 
                                : 16'h7FFF) 

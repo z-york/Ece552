@@ -20,10 +20,10 @@ reg m_re, m_we, i_we, i_rdy_forward, m_addr_sel, d_rdy_forward, d_re, d_we,
 reg [2:0] state, next_state;
 
 // States
-localparam IDLE = 3'b000;
-localparam IFILL = 3'b001;
-localparam EVICT = 3'b010;
-localparam DFILL = 3'b011;
+localparam IDLE = 2'b00;
+localparam IFILL = 2'b01;
+localparam EVICT = 2'b10;
+localparam DFILL = 2'b11;
 
 // State Flow
 always@(posedge clk, negedge rst_n) begin
@@ -128,7 +128,7 @@ always@(*) begin
         IFILL: begin
             i_we = m_rdy;
             i_rdy_forward = m_rdy;
-            d_we = d_we_in && d_rdy && i_rdy_out;
+            d_we = d_we_in && d_rdy && i_rdy_out; // Make sure pending data write not skipped
             d_w_dirty = d_we;
             if(!m_rdy) next_state = IFILL; // Fill until mem says "rdy"
             else next_state = IDLE; // When mem done, back to Idle

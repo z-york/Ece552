@@ -8,7 +8,7 @@ module ID(input [15:0]instr, output reg [2:0] src1sel_out, output reg hlt, outpu
           output reg [1:0] flag_en, output reg mem_re, output reg mem_we, output reg [1:0] dst_sel, 
           output reg [3:0] branch_code, output reg jumpR, input [3:0]ID_dst, input ID_we, 
           input [3:0]EX_dst, input EX_we, input ID_mem_re, input EX_mem_re, output bubble, 
-          output reg addz, output reg [1:0] sw_p1_sel, output reg nonsat);
+          output reg addz, output reg [1:0] sw_p1_sel); //, output reg nonsat);
 
 // Intermediate wires
 reg [2:0] src0sel, src1sel;
@@ -112,7 +112,7 @@ end
 always@(*) begin
 // Default values
 addz = 1'b0;            // Signals muxing of write-enable with zero flag
-nonsat = 1'b0;          // Signals no saturation for address calculation
+//nonsat = 1'b0;          // Signals no saturation for address calculation
 src1sel = 3'b000;       // Selects SRC1
 src0sel = 3'b000;       // Selects SRC0
 hlt = 1'b0;             // Signals HLT
@@ -154,7 +154,7 @@ case (instr[15:12])
         p1_addr = instr[7:4];
     end
     AND: begin
-        nonsat = 1'b1;
+        //nonsat = 1'b1;
         funct = 3'b010;
         flag_en = 2'b01;
         we = 1'b1;
@@ -162,7 +162,7 @@ case (instr[15:12])
         p1_addr = instr[7:4];
     end
     NOR: begin
-        nonsat = 1'b1;
+        //nonsat = 1'b1;
         funct = 3'b011;
         flag_en = 2'b01;
         we = 1'b1;
@@ -170,7 +170,7 @@ case (instr[15:12])
         p1_addr = instr[7:4];
     end
     SLL: begin
-        nonsat = 1'b1;
+        //nonsat = 1'b1;
         funct = 3'b100;
         flag_en = 2'b01;
         we = 1'b1;
@@ -178,7 +178,7 @@ case (instr[15:12])
         p1_addr = instr[7:4];
     end
     SRL: begin
-        nonsat = 1'b1;
+        //nonsat = 1'b1;
         funct = 3'b101;
         flag_en = 2'b01;
         we = 1'b1;
@@ -186,7 +186,7 @@ case (instr[15:12])
         p1_addr = instr[7:4];
     end
     SRA: begin
-        nonsat = 1'b1;
+        //nonsat = 1'b1;
         funct = 3'b110;
         flag_en = 2'b01;
         we = 1'b1;
@@ -194,13 +194,13 @@ case (instr[15:12])
         p1_addr = instr[7:4];
     end
     LLB: begin
-        nonsat = 1'b1;
+        //nonsat = 1'b1;
         src1sel = 3'b001;
         p0_addr = 4'b0000;
         we = 1'b1;
     end
     LHB: begin
-        nonsat = 1'b1;
+        //nonsat = 1'b1;
         funct = 3'b111;
         src1sel = 3'b001;
         p0_addr = instr[11:8];
@@ -210,7 +210,7 @@ case (instr[15:12])
         hlt = 1'b1;
     end
     LW: begin
-        nonsat = 1'b1;
+        //nonsat = 1'b1;
         p0_addr = instr[7:4];
         src1sel = 3'b010;
         mem_re = 1;
@@ -218,14 +218,14 @@ case (instr[15:12])
         we = 1'b1;
     end
     SW: begin
-        nonsat = 1'b1;
+        //nonsat = 1'b1;
         p0_addr = instr[7:4];
         p1_addr = instr[11:8];
         src1sel = 3'b010;
         mem_we = 1;
     end
     JAL: begin
-        nonsat = 1'b1;
+        //nonsat = 1'b1;
         dst_addr = 4'b1111;
         src1sel = 3'b011;
         dst_sel = 2'b10;
@@ -234,12 +234,12 @@ case (instr[15:12])
         we = 1'b1;
     end
     JR: begin
-        nonsat = 1'b1;
+        //nonsat = 1'b1;
         jumpR = 1'b1;
         p1_addr = instr[7:4];
     end
     B: begin
-        nonsat = 1'b1;
+        //nonsat = 1'b1;
         src1sel = 3'b011;
         src0sel = 3'b001;
         branch_code[3] = 1'b1;
