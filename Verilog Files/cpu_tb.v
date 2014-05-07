@@ -18,9 +18,9 @@ begin
 	// Initialize Clock
 	clk = 0;
 	// Reset the machine to ensure PC points to address x0000
-	rst_n = 0;
+	rst_n = 0; clk = 1;
 	#5;
-	rst_n = 1;
+	rst_n = 1; clk = 0;
 	#5;
 	// Run whatever is in instruction memory until hlt is asserted
 	while (hlt != 1 && cycle_count != 100000) begin
@@ -34,9 +34,9 @@ begin
 	$display("Cycles: %d", cycle_count);
 	// Reset puts PC back to 0 and de-asserts hlt
 	cycle_count = 0;
-	rst_n = 0;
+	rst_n = 0; clk = 1;
 	#5;
-	rst_n = 1;
+	rst_n = 1; clk = 0;
 	#5;
 	$display("2nd time through the instructions:");
 	// Run through instr mem again, shows that halt does not reset regs

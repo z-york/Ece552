@@ -1,20 +1,29 @@
-// Andrew Gailey and Zach York
-module CC(output [15:0]instr, output i_rdy_out, output [15:0]d_rd_data_out, output d_rdy_out, input clk, input rst_n, input [15:0]i_addr, input i_en, input [15:0]d_addr, input [15:0]wrt_data, input d_re_in, input d_we_in);
+////////////////////////////////////////////////////////////////////////////////
+// Cache Control module                                                       //
+// Andrew Gailey and Zach York                                                //
+////////////////////////////////////////////////////////////////////////////////
+module CC(output [15:0]instr, output i_rdy_out, output [15:0]d_rd_data_out, 
+          output d_rdy_out, input clk, input rst_n, input [15:0]i_addr, 
+          input i_en, input [15:0]d_addr, input [15:0]wrt_data, input d_re_in, 
+          input d_we_in);
 
+// Intermediate wires
 wire i_rdy, m_rdy, i_dirty, d_dirty, d_rdy;
 wire [13:0] m_addr, d_addr_muxed;
-wire [63:0] i_rd_data, m_rd_data, d_rd_data, i_rd_data_muxed, d_w_data_muxed, d_rd_data_muxed, d_w_data_premux;
+wire [63:0] i_rd_data, m_rd_data, d_rd_data, i_rd_data_muxed, d_w_data_muxed, 
+            d_rd_data_muxed, d_w_data_premux;
 wire [7:0] i_tag, d_tag;
+reg m_re, m_we, i_we, i_rdy_forward, m_addr_sel, d_rdy_forward, d_re, d_we, 
+    d_w_dirty;
 
-reg m_re, m_we, i_we, i_rdy_forward, m_addr_sel, d_rdy_forward, d_re, d_we, d_w_dirty;
+// State registers
 reg [2:0] state, next_state;
 
 // States
 localparam IDLE = 3'b000;
 localparam IFILL = 3'b001;
 localparam EVICT = 3'b010;
-localparam WFILL = 3'b011;
-localparam RFILL = 3'b110;
+localparam DFILL = 3'b011;
 
 // State Flow
 always@(posedge clk, negedge rst_n) begin
@@ -22,9 +31,10 @@ always@(posedge clk, negedge rst_n) begin
     else state <= next_state;
 end
 
-////////////////////////
-//////// Icache ////////
-////////////////////////
+
+////////////
+// Icache //
+////////////
 assign i_rdy_out = i_rdy_forward || i_rdy;
 cache Icache(clk, rst_n, i_addr[15:2], m_rd_data, 1'b0, i_we, 1'b1, i_rd_data, i_tag, i_rdy, i_dirty);
 
@@ -35,6 +45,7 @@ assign instr = i_addr[1] ? (i_addr[0] ? i_rd_data_muxed[63:48]   // 11
                                       : i_rd_data_muxed[47:32])  // 10
                          : (i_addr[0] ? i_rd_data_muxed[31:16]   // 01
                                       : i_rd_data_muxed[15:0]);  // 00
+
 
 ////////////////////////
 //////// Dcache ////////
@@ -63,6 +74,7 @@ assign d_rd_data_out = d_addr[1] ? (d_addr[0] ? d_rd_data_muxed[63:48]   // 11
                                  : (d_addr[0] ? d_rd_data_muxed[31:16]   // 01
                                               : d_rd_data_muxed[15:0]);  // 00
 
+
 ///////////////////////
 //////// U-MEM ////////
 ///////////////////////
@@ -73,6 +85,7 @@ assign d_addr_muxed = m_re ? d_addr[15:2]
                            : {d_tag, d_addr[7:2]};
 assign m_addr = m_addr_sel ? d_addr_muxed
                            : i_addr[15:2];
+
 
 ///////////////////////////////
 //////// State Machine ////////
@@ -94,65 +107,47 @@ always@(*) begin
         IDLE: begin
             d_we = d_we_in && d_rdy && i_rdy_out;
             d_w_dirty = d_we;
-            if(!i_rdy) begin
+            if(!i_rdy) begin // If Icache Miss, Fill
                 next_state = IFILL;
                 m_re = 1'b1;
             end
             else if(!d_rdy) begin
-                if(d_we_in) begin
-                    if(d_dirty) begin
-                        next_state = EVICT;
-                        m_we = 1'b1;
-                        m_addr_sel = 1'b1;
-                    end
-                    else begin
-                        next_state = WFILL;
-                        m_re = 1'b1;
-                        m_addr_sel = 1'b1;
-                    end
+                if(d_dirty && d_re) begin // If Dcache Miss, we are reading/writing, and Dirty = Evict
+                    next_state = EVICT;
+                    m_we = 1'b1;
+                    m_addr_sel = 1'b1;
                 end
-                else if(d_re_in) begin
-                    if(d_dirty) begin
-                        next_state = EVICT;
-                        m_we = 1'b1;
-                        m_addr_sel = 1'b1;
-                    end
-                    else begin
-
-                    end
+                else if(d_re) begin // If Dcache Miss, we are reading/writing, and not Dirty = Fill
+                    next_state = DFILL;
+                    m_re = 1'b1;
+                    m_addr_sel = 1'b1;
                 end
             end
         end
+
         IFILL: begin
             i_we = m_rdy;
             i_rdy_forward = m_rdy;
             d_we = d_we_in && d_rdy && i_rdy_out;
             d_w_dirty = d_we;
-            if(!m_rdy) next_state = IFILL;
-            else next_state = IDLE;
+            if(!m_rdy) next_state = IFILL; // Fill until mem says "rdy"
+            else next_state = IDLE; // When mem done, back to Idle
         end
+
         EVICT: begin
-            if(!m_rdy) next_state = EVICT;
-            else if(d_we_in) next_state = WFILL;
-            else next_state = RFILL;
+            if(!m_rdy) next_state = EVICT; // Evict until mem says "rdy"
+            else next_state = DFILL; // When mem done, Fill evicted spot
         end
-        WFILL: begin
+
+        DFILL: begin
             m_re = 1'b1;
             m_addr_sel = 1'b1;
             d_we = m_rdy;
             d_rdy_forward = m_rdy;
-            if(!m_rdy) next_state = WFILL;
-            else next_state = IDLE;
+            if(!m_rdy) next_state = DFILL; // Fill until mem says "rdy"
+            else next_state = IDLE; // When mem done, back to Idle
         end
-        RFILL: begin
-            m_re = 1'b1;
-            m_addr_sel = 1'b1;
-            d_we = m_rdy;
-            d_rdy_forward = m_rdy;
-            if(!m_rdy) next_state = RFILL;
-            else next_state = IDLE;
-        end
-        default: next_state = IDLE;
+        default: next_state = IDLE; // Default to Idle
     endcase
 end
 
